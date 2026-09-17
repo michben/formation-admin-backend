@@ -244,6 +244,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("conv-back").addEventListener("click", closeConversation);
 
+  document.getElementById("conv-delete-btn").addEventListener("click", async () => {
+    if (!confirm("Supprimer definitivement cette conversation ?")) return;
+    const visitorId = document.getElementById("conv-thread-card").dataset.visitor;
+    await authedFetch(`/api/admin/conversations/${encodeURIComponent(visitorId)}`, { method: "DELETE" });
+    closeConversation();
+  });
+
   document.getElementById("conv-reply-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const input = document.getElementById("conv-reply-input");

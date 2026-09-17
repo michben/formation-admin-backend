@@ -375,6 +375,12 @@ app.get("/api/admin/conversations/:visitorId", requireAdmin, async (req, res) =>
   res.json(result.rows);
 });
 
+app.delete("/api/admin/conversations/:visitorId", requireAdmin, async (req, res) => {
+  await pool.query(`DELETE FROM chat_messages WHERE visitor_id = $1`, [req.params.visitorId]);
+  await pool.query(`DELETE FROM visitor_state WHERE visitor_id = $1`, [req.params.visitorId]);
+  res.json({ ok: true });
+});
+
 app.post("/api/admin/conversations/:visitorId/reply", requireAdmin, async (req, res) => {
   const { body } = req.body || {};
   if (!body || !String(body).trim()) return res.status(400).json({ error: "empty" });

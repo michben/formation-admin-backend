@@ -112,8 +112,11 @@
     </div>
 
     <div class="card hidden" id="conv-thread-card">
-      <span class="back-link" id="conv-back">← Retour aux conversations</span>
-      <h3 style="margin-top:0; color:var(--navy);" id="conv-thread-title">Conversation</h3>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="back-link" id="conv-back" style="margin-bottom:0;">← Retour aux conversations</span>
+        <button class="btn-danger" id="conv-delete-btn" style="font-size:0.8rem; padding:6px 12px;">🗑️ Supprimer</button>
+      </div>
+      <h3 style="margin-top:12px; color:var(--navy);" id="conv-thread-title">Conversation</h3>
       <div class="thread-box" id="conv-thread-box"></div>
       <form class="reply-form" id="conv-reply-form">
         <input type="text" id="conv-reply-input" placeholder="Votre réponse..." required>
