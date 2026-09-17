@@ -271,7 +271,7 @@ async function processMessage(visitorId, body) {
     return { answer: "Oui, une formation en présentiel est actuellement possible en Île-de-France uniquement. Quelle est votre commune ou votre code postal, pour vérifier la faisabilité ?", needsHuman: false };
   }
 
-  if (/\bfrais de deplacement|frais de deplacements\b/.test(norm)) {
+  if (/deplacement/.test(norm)) {
     await setAwaiting(visitorId, "commune");
     return { answer: "Les frais de déplacement dépendent de la zone, de la distance et du transport — je ne peux pas inventer un montant. Quelle est votre commune ou code postal, pour que michben étudie ça avec vous ?", needsHuman: false };
   }
