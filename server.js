@@ -55,6 +55,16 @@ async function initDb() {
       total INTEGER NOT NULL,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id SERIAL PRIMARY KEY,
+      visitor_id TEXT NOT NULL,
+      visitor_name TEXT,
+      sender TEXT NOT NULL,
+      body TEXT NOT NULL,
+      needs_human BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_visitor ON chat_messages(visitor_id, created_at);
   `);
 
   const legacyHash = sha256("MICHBEN-CLAUDE-2026");
@@ -152,6 +162,105 @@ app.post("/api/quiz-result", async (req, res) => {
     `INSERT INTO quiz_results (student_id, quiz_type, score, total) VALUES ($1,$2,$3,$4)`,
     [session.rows[0].student_id, quiz_type, score, total]
   );
+  res.json({ ok: true });
+});
+
+// --- Agent de conversation (repond automatiquement si possible, sinon transmet a l'admin) ---
+const FAQ_RULES = [
+  { keywords: ["bonjour", "salut", "hello", "bonsoir", "coucou"], answer: "Bonjour ! 👋 Posez votre question sur les formations, je réponds automatiquement si possible, sinon michben vous répondra directement ici." },
+  { keywords: ["prix", "tarif", "cout", "combien"], answer: "Nos tarifs : Claude Code dans le terminal (250€), Fly Connectome (250€), ou le Pack des deux formations (400€ au lieu de 500€, offre de lancement). Vous pouvez réserver depuis la section Tarifs de la page." },
+  { keywords: ["presentiel", "distanciel", "visio", "domicile"], answer: "La formation est possible en visioconférence à distance, ou en présentiel selon votre zone géographique." },
+  { keywords: ["paiement", "payer", "stripe", "carte bancaire"], answer: "Le paiement se fait de façon sécurisée via Stripe, directement depuis les boutons \"Réserver\" de la page." },
+  { keywords: ["code d'acces", "code d acces", "espace formation", "lien prive", "mon acces"], answer: "Après réception de votre paiement, vous recevez par email un lien privé et un code d'accès personnel pour l'espace de formation." },
+  { keywords: ["calendly", "rendez-vous", "rendez vous", "creneau", "reserver un appel"], answer: "Vous pouvez réserver un appel découverte gratuit ici : https://calendly.com/michben" },
+  { keywords: ["connectome", "mouche", "fly"], answer: "La formation Fly Connectome aborde le connectome de la mouche et l'IA bio-inspirée : représentation en graphe, simulation et apprentissage." },
+  { keywords: ["claude code", "terminal", "installation"], answer: "La formation Claude Code dans le terminal couvre l'installation, la prise en main, la création d'un projet accompagné et le suivi avec Git." },
+  { keywords: ["merci", "parfait", "super"], answer: "Avec plaisir 🙂 N'hésitez pas si vous avez d'autres questions !" },
+];
+
+function normalize(s) {
+  return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
+function autoAnswer(body) {
+  const text = normalize(body);
+  for (const rule of FAQ_RULES) {
+    if (rule.keywords.some((k) => text.includes(normalize(k)))) {
+      return { body: rule.answer, needsHuman: false };
+    }
+  }
+  return {
+    body: "Merci pour votre message ! Je transmets votre question à michben qui vous répondra ici dès que possible.",
+    needsHuman: true,
+  };
+}
+
+app.post("/api/chat/message", async (req, res) => {
+  let { visitor_id, visitor_name, body } = req.body || {};
+  if (!body || !String(body).trim()) return res.status(400).json({ error: "empty message" });
+  if (!visitor_id) visitor_id = crypto.randomUUID();
+
+  await pool.query(
+    `INSERT INTO chat_messages (visitor_id, visitor_name, sender, body) VALUES ($1,$2,'visitor',$3)`,
+    [visitor_id, visitor_name ? String(visitor_name).trim() : null, String(body).trim()]
+  );
+
+  const auto = autoAnswer(body);
+  await pool.query(
+    `INSERT INTO chat_messages (visitor_id, sender, body, needs_human) VALUES ($1,'agent',$2,$3)`,
+    [visitor_id, auto.body, auto.needsHuman]
+  );
+
+  res.json({ visitor_id, reply: auto.body, needs_human: auto.needsHuman });
+});
+
+app.get("/api/chat/messages", async (req, res) => {
+  const { visitor_id } = req.query;
+  if (!visitor_id) return res.status(400).json({ error: "visitor_id required" });
+  const result = await pool.query(
+    `SELECT sender, body, created_at FROM chat_messages WHERE visitor_id = $1 ORDER BY created_at ASC`,
+    [visitor_id]
+  );
+  res.json(result.rows);
+});
+
+app.get("/api/admin/conversations", requireAdmin, async (req, res) => {
+  const result = await pool.query(`
+    SELECT c.visitor_id, c.last_sender, c.last_message, c.needs_human, c.last_at, n.visitor_name
+    FROM (
+      SELECT DISTINCT ON (visitor_id) visitor_id, sender AS last_sender, body AS last_message,
+             needs_human, created_at AS last_at
+      FROM chat_messages ORDER BY visitor_id, created_at DESC
+    ) c
+    LEFT JOIN (
+      SELECT visitor_id, MAX(visitor_name) AS visitor_name
+      FROM chat_messages WHERE visitor_name IS NOT NULL GROUP BY visitor_id
+    ) n ON n.visitor_id = c.visitor_id
+    ORDER BY c.last_at DESC
+  `);
+  res.json(
+    result.rows.map((r) => ({
+      ...r,
+      needs_human: r.last_sender === "agent" && r.needs_human === true,
+    }))
+  );
+});
+
+app.get("/api/admin/conversations/:visitorId", requireAdmin, async (req, res) => {
+  const result = await pool.query(
+    `SELECT sender, body, created_at FROM chat_messages WHERE visitor_id = $1 ORDER BY created_at ASC`,
+    [req.params.visitorId]
+  );
+  res.json(result.rows);
+});
+
+app.post("/api/admin/conversations/:visitorId/reply", requireAdmin, async (req, res) => {
+  const { body } = req.body || {};
+  if (!body || !String(body).trim()) return res.status(400).json({ error: "empty" });
+  await pool.query(`INSERT INTO chat_messages (visitor_id, sender, body) VALUES ($1,'admin',$2)`, [
+    req.params.visitorId,
+    String(body).trim(),
+  ]);
   res.json({ ok: true });
 });
 

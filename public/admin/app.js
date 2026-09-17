@@ -20,6 +20,8 @@ function showDashboard() {
   document.getElementById("login-screen").classList.add("hidden");
   document.getElementById("dashboard").classList.remove("hidden");
   loadStudents();
+  loadConversations();
+  setInterval(loadConversations, 20000);
 }
 
 async function login(password) {
@@ -98,6 +100,84 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// --- Messages / conversations ------------------------------------------
+let messagesPollTimer = null;
+
+function formatDateTime(iso) {
+  return new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+async function loadConversations() {
+  const res = await authedFetch("/api/admin/conversations");
+  const conversations = await res.json();
+  renderConversations(conversations);
+
+  const needsHumanCount = conversations.filter((c) => c.needs_human).length;
+  const badge = document.getElementById("messages-badge");
+  if (needsHumanCount > 0) {
+    badge.textContent = needsHumanCount;
+    badge.classList.remove("hidden");
+  } else {
+    badge.classList.add("hidden");
+  }
+}
+
+function renderConversations(conversations) {
+  const list = document.getElementById("conv-list");
+  if (conversations.length === 0) {
+    list.innerHTML = "<p style='color:var(--muted);'>Aucun message pour le moment.</p>";
+    return;
+  }
+  list.innerHTML = conversations
+    .map(
+      (c) => `<div class="conv-item ${c.needs_human ? "needs-human" : ""}" data-visitor="${c.visitor_id}">
+        <div>
+          <div class="conv-name">${escapeHtml(c.visitor_name || "Visiteur anonyme")} ${c.needs_human ? "🔴" : ""}</div>
+          <div class="conv-preview">${escapeHtml(c.last_message)}</div>
+        </div>
+        <div style="color:var(--muted); font-size:0.78rem; white-space:nowrap;">${formatDateTime(c.last_at)}</div>
+      </div>`
+    )
+    .join("");
+
+  list.querySelectorAll("[data-visitor]").forEach((el) => {
+    el.addEventListener("click", () => openConversation(el.dataset.visitor));
+  });
+}
+
+async function openConversation(visitorId) {
+  document.getElementById("conv-list-card").classList.add("hidden");
+  const threadCard = document.getElementById("conv-thread-card");
+  threadCard.classList.remove("hidden");
+  threadCard.dataset.visitor = visitorId;
+
+  await refreshThread(visitorId);
+  clearInterval(messagesPollTimer);
+  messagesPollTimer = setInterval(() => refreshThread(visitorId), 8000);
+}
+
+async function refreshThread(visitorId) {
+  const res = await authedFetch(`/api/admin/conversations/${encodeURIComponent(visitorId)}`);
+  const messages = await res.json();
+  const box = document.getElementById("conv-thread-box");
+  box.innerHTML = messages
+    .map(
+      (m) => `<div class="thread-msg ${m.sender}">
+        ${m.sender !== "visitor" ? `<span class="m-sender">${m.sender === "admin" ? "Vous" : "Assistant"}</span>` : ""}
+        ${escapeHtml(m.body)}
+      </div>`
+    )
+    .join("");
+  box.scrollTop = box.scrollHeight;
+}
+
+function closeConversation() {
+  clearInterval(messagesPollTimer);
+  document.getElementById("conv-thread-card").classList.add("hidden");
+  document.getElementById("conv-list-card").classList.remove("hidden");
+  loadConversations();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   if (getToken()) showDashboard();
 
@@ -150,5 +230,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("close-modal-btn").addEventListener("click", () => {
     document.getElementById("code-modal").classList.remove("show");
+  });
+
+  document.querySelectorAll(".nav-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".nav-tab").forEach((t) => t.classList.remove("active"));
+      document.querySelectorAll(".section").forEach((s) => s.classList.remove("active"));
+      tab.classList.add("active");
+      document.getElementById(tab.dataset.section).classList.add("active");
+      if (tab.dataset.section === "section-messages") loadConversations();
+    });
+  });
+
+  document.getElementById("conv-back").addEventListener("click", closeConversation);
+
+  document.getElementById("conv-reply-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("conv-reply-input");
+    const text = input.value.trim();
+    if (!text) return;
+    const visitorId = document.getElementById("conv-thread-card").dataset.visitor;
+    input.value = "";
+    await authedFetch(`/api/admin/conversations/${encodeURIComponent(visitorId)}/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: text }),
+    });
+    refreshThread(visitorId);
   });
 });
