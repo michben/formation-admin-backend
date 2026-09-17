@@ -167,7 +167,6 @@ app.post("/api/quiz-result", async (req, res) => {
 
 // --- Agent de conversation (repond automatiquement si possible, sinon transmet a l'admin) ---
 const FAQ_RULES = [
-  { keywords: ["bonjour", "salut", "hello", "bonsoir", "coucou"], answer: "Bonjour ! 👋 Posez votre question sur les formations, je réponds automatiquement si possible, sinon michben vous répondra directement ici." },
   { keywords: ["prix", "tarif", "cout", "combien"], answer: "Nos tarifs : Claude Code dans le terminal (250€), Fly Connectome (250€), ou le Pack des deux formations (400€ au lieu de 500€, offre de lancement). Vous pouvez réserver depuis la section Tarifs de la page." },
   { keywords: ["presentiel", "distanciel", "visio", "domicile"], answer: "La formation est possible en visioconférence à distance, ou en présentiel selon votre zone géographique." },
   { keywords: ["paiement", "payer", "stripe", "carte bancaire"], answer: "Le paiement se fait de façon sécurisée via Stripe, directement depuis les boutons \"Réserver\" de la page." },
@@ -176,6 +175,7 @@ const FAQ_RULES = [
   { keywords: ["connectome", "mouche", "fly"], answer: "La formation Fly Connectome aborde le connectome de la mouche et l'IA bio-inspirée : représentation en graphe, simulation et apprentissage." },
   { keywords: ["claude code", "terminal", "installation"], answer: "La formation Claude Code dans le terminal couvre l'installation, la prise en main, la création d'un projet accompagné et le suivi avec Git." },
   { keywords: ["merci", "parfait", "super"], answer: "Avec plaisir 🙂 N'hésitez pas si vous avez d'autres questions !" },
+  { keywords: ["bonjour", "salut", "hello", "bonsoir", "coucou"], answer: "Bonjour ! 👋 Posez votre question sur les formations, je réponds automatiquement si possible, sinon michben vous répondra directement ici." },
 ];
 
 function normalize(s) {
