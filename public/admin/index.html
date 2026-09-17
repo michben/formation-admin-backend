@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Console admin — michben</title>
+<style>
+  :root {
+    --purple: #4B2E83; --purple-light: #6B3FA0; --navy: #16214A;
+    --green: #1E8E3E; --red: #C62828; --bg-soft: #F5F3FA; --border: #E4E0F0; --muted: #5B6472;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg-soft); color: #1F2430; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 30px 20px 60px; }
+  h1 { color: var(--navy); font-size: 1.4rem; }
+  .card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 24px; box-shadow: 0 8px 24px rgba(27,16,63,0.08); margin-bottom: 22px; }
+  .login-wrap { max-width: 380px; margin: 90px auto; text-align: center; }
+  input, select { width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; margin-bottom: 10px; }
+  button { cursor: pointer; border: none; border-radius: 999px; padding: 10px 18px; font-weight: 700; font-size: 0.9rem; }
+  .btn-primary { background: linear-gradient(135deg, var(--purple-light), var(--purple)); color: #fff; }
+  .btn-danger { background: #fff; color: var(--red); border: 1px solid var(--red); }
+  .btn-secondary { background: #fff; color: var(--navy); border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--navy); }
+  .pill { display: inline-block; background: var(--bg-soft); color: var(--purple); font-weight: 700; font-size: 0.75rem; padding: 3px 9px; border-radius: 999px; margin: 2px 4px 2px 0; }
+  .error { color: var(--red); font-size: 0.85rem; min-height: 18px; }
+  .add-form { display: grid; grid-template-columns: 1.2fr 1.2fr 1fr auto; gap: 10px; align-items: start; }
+  @media (max-width: 700px) { .add-form { grid-template-columns: 1fr; } }
+  .modal-bg { position: fixed; inset: 0; background: rgba(16,26,56,0.55); display: none; align-items: center; justify-content: center; z-index: 50; }
+  .modal-bg.show { display: flex; }
+  .modal { background: #fff; border-radius: 14px; padding: 28px; max-width: 380px; text-align: center; }
+  .code-box { font-size: 1.6rem; font-weight: 800; color: var(--purple); background: var(--bg-soft); padding: 14px; border-radius: 10px; margin: 14px 0; letter-spacing: 0.05em; }
+  .hidden { display: none !important; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<div id="login-screen" class="login-wrap">
+  <div class="card">
+    <h1>🔒 Console admin</h1>
+    <p style="color:var(--muted); font-size:0.9rem;">michben — gestion des élèves</p>
+    <form id="login-form">
+      <input type="password" id="password" placeholder="Mot de passe admin" required>
+      <div class="error" id="login-error"></div>
+      <button type="submit" class="btn-primary" style="width:100%;">Se connecter</button>
+    </form>
+  </div>
+</div>
+
+<div id="dashboard" class="wrap hidden">
+  <div class="top-bar">
+    <h1>👩‍🏫 Console admin — michben</h1>
+    <button class="btn-secondary" id="logout-btn">Se déconnecter</button>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0; color:var(--navy);">➕ Ajouter un élève</h3>
+    <form id="add-form" class="add-form">
+      <input type="text" id="s-name" placeholder="Nom de l'élève" required>
+      <input type="email" id="s-email" placeholder="Email (optionnel)">
+      <select id="s-formation">
+        <option value="claude_code">Claude Code</option>
+        <option value="fly_connectome">Fly Connectome</option>
+        <option value="pack" selected>Pack des deux</option>
+      </select>
+      <button type="submit" class="btn-primary">Ajouter</button>
+    </form>
+    <div class="error" id="add-error"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0; color:var(--navy);">👥 Élèves</h3>
+    <div id="students-table"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="code-modal">
+  <div class="modal">
+    <div style="font-size:1.8rem;">✅</div>
+    <h3 style="margin:6px 0; color:var(--navy);">Élève ajouté</h3>
+    <p style="color:var(--muted); font-size:0.9rem; margin:0;">Envoyez ce code à l'élève avec le lien de l'espace formation. Il ne sera plus affiché ensuite.</p>
+    <div class="code-box" id="new-code"></div>
+    <button class="btn-primary" id="copy-code-btn">📋 Copier le code</button>
+    <br><br>
+    <button class="btn-secondary" id="close-modal-btn">Fermer</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
